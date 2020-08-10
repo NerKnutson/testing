@@ -87,13 +87,13 @@ void RingBuffer::Dump(int marker, double* history, double* shot)
 // Read data
 	for(int i = 0; i < marker; i++)
 	{
-			for(int j = 0; j < m_buffer_number; j++)
-			history[i*m_buffer_number + j] = Look(i, j);
+		for(int j = 0; j < m_buffer_number; j++)
+			history[i + j*marker] = Look(i, j);
 	}
 	for(int i = marker; i < max_size_; i++)
 	{
 		for(int j = 0; j < m_buffer_number; j++)
-			shot[(i-marker)*m_buffer_number + j] = Look(i, j);
+			shot[i-marker + j*(max_size_-marker)] = Look(i, j);
 	}
 }
 

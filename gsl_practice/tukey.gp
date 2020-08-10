@@ -13,12 +13,11 @@ set title textcolor '#fbffff'
 set xlabel textcolor '#fbffff'
 set ylabel textcolor '#fbffff'
 
-! ./test > output.dat
 
 set output ARG1
 
 set title "Tukey Windowing"
-set xlabel "time"
+set xlabel "Frequency"
 set ylabel "amplitude"
 
-plot "output.dat" using 1 w l
+plot "output.dat" using 5

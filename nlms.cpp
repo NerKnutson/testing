@@ -53,7 +53,7 @@ bool NLMS::Process(double data[])
 	// Check for shot and increment variance
 		for (int i = 0; i < m_N_chan; i++)
 		{
-			if ( m_error[i]*m_error[i] > 25*m_var[i])
+			if ( m_error[i]*m_error[i] > 81*m_var[i])
 				m_triggered[i] = true;
 			else
 				m_triggered[i] = false;
