@@ -1,5 +1,6 @@
 #include "welch.h"
 
+// Tukey windowing function, takes in a data set and applies a Tukey windowing filter
 void Welch::tukey(double* input)
 {
 	double filter = 0.0;
@@ -11,7 +12,8 @@ void Welch::tukey(double* input)
 	}
 }
 
-void Welch::fft(double* input)
+// Computes the CSD using the Welch method and puts the coefficients into a complex matrix
+void Welch::welch_csd(double* input)
 {
 	double data[m_N_chan][m_window_size];
 	for (int w = 0; w < m_window_num; w++)
@@ -51,6 +53,31 @@ void Welch::fft(double* input)
 						)
 					);
 				}
+		}
+	}
+}
+// performs a fft for N_chan channels and puts the coefficients into a complex vector
+void Welch::fft(double* input)
+{
+	double data[m_window_size];
+	for (int n = 0; n < m_N_chan; n++)
+	{
+		for (int i = 0; i < m_window_size; i++)
+		{
+			data[i] = input[n*m_window_size + i];
+		}
+		tukey(data);
+		gsl_fft_real_radix2_transform(data,1,m_window_size);
+		for (int b = 0; b < m_bin_num; b++)
+		{
+			gsl_vector_complex_set(
+				vector_holder[b],
+				n,
+				gsl_complex_rect(
+					data[b+1],
+					data[m_window_size-1-b]
+				)
+			);
 		}
 	}
 }

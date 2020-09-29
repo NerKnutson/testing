@@ -7,6 +7,7 @@
 class RingBuffer
 {
 	public:
+	// Constructor sets the constants immediately and then takes care of the buffer declaration: buf[N_chan][buffer_size]
 		explicit RingBuffer(size_t buffer_number, size_t size):
 			m_buffer_number(buffer_number),
 			max_size_(size)
@@ -17,6 +18,12 @@ class RingBuffer
 					buf_[i]=std::unique_ptr<double[]>(new double[max_size_]);
 				}
 			};
+		~RingBuffer()
+			{
+				for(int i = 0; i < m_buffer_number; i++)
+					buf_[i].reset();
+				delete buf_;
+			}
 		void Put(double const item[]);
 		void Get(double returned_data[]);
 		double Look(int index, int channel);

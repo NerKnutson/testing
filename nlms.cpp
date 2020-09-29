@@ -39,26 +39,29 @@ bool NLMS::Process(double data[])
 			}
 		}
 	// Calculating new coefficients
+	// new_coeff = old_coeff + error*data*step_size/|data|^2
 		place_holder = m_step_size/place_holder;
 		for (int i = 0; i < m_filter_order; i++)
 		{
 			for (int j = 0; j < m_N_chan; j++)
 				for (int k = 0; k < m_N_chan; k++)
 				{
-					 m_coeff[j][k][(i+index)%m_filter_order] += place_holder*m_error[j]*m_x[k][(i+index)%m_filter_order];
-					 if (i == m_step_size - 1)
-						 m_coeff[j][k][m_filter_order] += place_holder*m_error[j]*data[k];
+					 m_coeff[j][k][(i+index)%m_filter_order] += place_holder*m_error[j]*m_x[k][(i+index)%m_filter_order]*(!m_triggered[k]);
+					 if (i == m_step_size - 1 and j != k)
+						 m_coeff[j][k][m_filter_order] += place_holder*m_error[j]*data[k]*(!m_triggered[k]);
 				}
 		}
 	// Check for shot and increment variance
 		for (int i = 0; i < m_N_chan; i++)
 		{
-			if ( m_error[i]*m_error[i] > 81*m_var[i])
+			if (m_error[i]*m_error[i] > 2000*m_var[i] and !m_triggered[i])
+			{
 				m_triggered[i] = true;
+			}
 			else
 				m_triggered[i] = false;
 			m_var[i] = m_alpha*m_var[i] + (1-m_alpha)*m_error[i]*m_error[i];
-		// Add data to m_x for next round
+		// Add data to m_x for next round; If triggered, does not add that data point
 			m_x[i][index%m_filter_order] = data[i];
 		}
 		return true;
@@ -78,4 +81,10 @@ bool NLMS::IsTriggered(int &which_channel)
 		}
 	}
 	return val;
+}
+
+void NLMS::ResetTriggers()
+{
+	for(int i = 0; i < m_N_chan; i++)
+		m_triggered[i] = false;
 }

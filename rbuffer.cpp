@@ -2,9 +2,10 @@
 
 void RingBuffer::Reset()
 {
-	std::lock_guard<std::mutex> lock(mutex_);
+	//std::lock_guard<std::mutex> lock(mutex_);
 	head_ = tail_;
 	full_ = false;
+	//std::lock_guard<std::mutex> unlock(mutex_);
 }
 
 // State Tracking
@@ -22,11 +23,13 @@ bool RingBuffer::Full() const
 
 size_t RingBuffer::Capacity() const
 {
+// returns the capacity of the ring buffer
 	return max_size_;
 }
 
 size_t RingBuffer::Size() const
 {
+// returns the current size of the buffer
 	size_t size = max_size_;
 	if(!full_)
 	{
@@ -45,7 +48,8 @@ size_t RingBuffer::Size() const
 // Adding Data
 void RingBuffer::Put(const double item[])
 {
-	std::lock_guard<std::mutex> lock(mutex_);
+// places the new data item[] at the head of the buffer and increments the head
+	//std::lock_guard<std::mutex> lock(mutex_);
 	for(int i = 0; i < m_buffer_number; i++)
 	{
 		buf_[i][head_] = item[i];
@@ -56,12 +60,14 @@ void RingBuffer::Put(const double item[])
 	}
 	head_ = (head_ + 1) % max_size_;
 	full_ = head_ == tail_;
+	//std::lock_guard<std::mutex> unlock(mutex_);
 }
 
 // Retrieving Data
 void RingBuffer::Get(double returned_data[])
 {
-	std::lock_guard<std::mutex> lock(mutex_);
+// retrieves data from the tail and increments the tail (leaving that entry to be rewritten)
+	//std::lock_guard<std::mutex> lock(mutex_);
 
 	if(Empty())
 	{
@@ -74,11 +80,27 @@ void RingBuffer::Get(double returned_data[])
 	}
 	full_ = false;
 	tail_ = (tail_ + 1) % max_size_;
+	//std::lock_guard<std::mutex> unlock(mutex_);
 }
 
+// Looks at the index from the tail and returns data for a particular channel
+// does not increment tail (essentially leaves buffer alone)
+double RingBuffer::Look(int index, int channel)
+{
+	//std::lock_guard<std::mutex> lock(mutex_);
+	if(Empty())
+	{
+		return (double) NULL;
+	}
+	// Return buffer for <channel> at tail + <index>
+	//std::lock_guard<std::mutex> unlock(mutex_);
+	return buf_[channel][(tail_+index) % max_size_];
+}
+
+// Using the Look function, dumps all data to history[N_chan][marker] and shot[N_chan][max_size_ - marker]
 void RingBuffer::Dump(int marker, double* history, double* shot)
 {
-	std::lock_guard<std::mutex> lock(mutex_);
+	//std::lock_guard<std::mutex> lock(mutex_);
 	if(Empty())
 	{
 		history = NULL;
@@ -95,16 +117,5 @@ void RingBuffer::Dump(int marker, double* history, double* shot)
 		for(int j = 0; j < m_buffer_number; j++)
 			shot[i-marker + j*(max_size_-marker)] = Look(i, j);
 	}
-}
-
-//  Looks at the index from the tail and puts data into your array
-double RingBuffer::Look(int index, int channel)
-{
-	std::lock_guard<std::mutex> lock(mutex_);
-	if(Empty())
-	{
-		return (double) NULL;
-	}
-	// Return buffer for <channel> at tail + <index>
-	return buf_[channel][(tail_+index) % max_size_];
+	//std::lock_guard<std::mutex> unlock(mutex_);
 }

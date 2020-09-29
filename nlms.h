@@ -29,25 +29,44 @@ class NLMS
 	// Destructor
 		~NLMS()
 			{
+				for (int i = 0; i < m_N_chan; i++)
+				{
+					delete m_x[i];
+					for (int j = 0; j < m_N_chan; j++)
+						delete m_coeff[i][j];
+				}
 				delete m_x;
 				delete m_coeff;
 				delete m_error;
 				delete m_var;
 				delete m_triggered;
 			};
+	// Takes in a data array from N_chan channels
 		bool Process(double data[]);
+	// Returns true if triggered and requires an int to be passed to send back which channel was triggered
 		bool IsTriggered(int &which_channel);
+	// Returns true if triggered and requires an int to be passed to send back which channel was triggered
+		void ResetTriggers();
+	// Public member variables for each channel
 		double* m_error;
 		double* m_var;
 		bool* m_triggered;
 	private:
+	// Number of channels
 		const int m_N_chan;
+	// Dummy index for when using the Process function
 		int index;
+	// Number of data points in the past required from each channel
 		int m_filter_order;
+	// How quickly the algorithm is allowed to change AKA learning rate
 		double m_step_size;
+	// How much the past variance influences the current variance (usually close to 1)
 		double m_alpha;
+	// Small number to not divide by zero. Possibly hardcode this in later?
 		const double m_tiny;
+	// Storing data
 		double** m_x;
+	// Coefficients for the algorithm
 		double*** m_coeff;
 };
 #endif
