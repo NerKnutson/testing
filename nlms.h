@@ -4,11 +4,12 @@ class NLMS
 {
 	public:
 	// Constructor (instantiates constants immediately) and then creates arrays
-		NLMS(int N_chan, int filter_order, double step_size, double alpha, double tiny) :
+		NLMS(int N_chan, int filter_order, double step_size, double alpha, double threshold, double tiny) :
 			m_N_chan(N_chan),
 			m_filter_order(filter_order),
 			m_step_size(step_size),
 			m_alpha(alpha),
+			m_threshold(threshold),
 			m_tiny(tiny),
 			index(0)
 			{
@@ -62,6 +63,8 @@ class NLMS
 		double m_step_size;
 	// How much the past variance influences the current variance (usually close to 1)
 		double m_alpha;
+	// Sets threshold for detection
+		double m_threshold;
 	// Small number to not divide by zero. Possibly hardcode this in later?
 		const double m_tiny;
 	// Storing data

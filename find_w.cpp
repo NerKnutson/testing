@@ -189,6 +189,21 @@ void perform_opt(opt_params* params, gsl_matrix_complex** cps,
     double var = rss / (double)(params->fdf.n - params->fdf.p - 1);
     gsl_matrix_scale(params->covar, var);
   }
+else if(params->status == GSL_ENOPROG)
+{
+	printf("GSL failed to find acceptable step\n");
+	fflush(stdout);
+}
+else if(params->status == GSL_EMAXITER)
+{
+	printf("GSL failed to converge within maximimum iterations\n");
+	fflush(stdout);
+}
+else
+{
+	printf("GSL straight up isn't doing it\n");
+	fflush(stdout);
+}
 
   // return
   // results are retained in the structure params
@@ -319,18 +334,25 @@ static int calc_real_jacobian(const gsl_vector* slowness, void* parameters,
 		   params->l_inv_sv[i_omega], zzero, params->work2);
     wgf_vector_complex_zero_the_imag_part(params->work2);
     gsl_vector_complex_scale(params->work2, ztwo);
+    gsl_vector_complex_scale(params->work2, params->s_hat[i_omega]);
     gsl_vector_complex_sub(params->work1, params->work2);
-    z = gsl_complex_mul(zmone, params->norm_sq_l_inv_sv[i_omega]);
+    //z = gsl_complex_mul(zmone, params->norm_sq_l_inv_sv[i_omega]);
+    //gsl_vector_complex_scale(params->p_s_hat_p_w,
+			     //gsl_complex_inverse(z));
     gsl_vector_complex_scale(params->p_s_hat_p_w,
-			     gsl_complex_inverse(z));
+			     gsl_complex_inverse(params->norm_sq_l_inv_sv[i_omega]));
 
     // finally, lets get the jacobian matrix values using the indexing system
     // the rows as i_omega, i_meas, (real, imag)
     // -l_inv_p_sv_p_w * s_hat - l_inv_sv * p_s_hat_p_w
     gsl_matrix_complex_scale(params->l_inv_p_sv_p_w[i_omega],
 			     params->s_hat[i_omega]);
-    gsl_blas_zgeru(zmone, params->l_inv_sv[i_omega], params->p_s_hat_p_w,
+    gsl_blas_zgeru(zone, params->l_inv_sv[i_omega], params->p_s_hat_p_w,
 		   params->l_inv_p_sv_p_w[i_omega]);
+
+// Noah's line
+    gsl_matrix_complex_scale(params->l_inv_p_sv_p_w[i_omega],
+			     zmone);
   }
 
   // a dreaded floating point copy. refactor one day
@@ -357,6 +379,7 @@ static void wgf_fill_jacobian(opt_params* params, gsl_matrix* jacobian) {
 
   // some pointer arithmetic--yuk
   for (int i_omega = 0; i_omega < params->n_omegas; ++i_omega)
+  {
     for (int i_meas = 0; i_meas < params->n_meas; ++i_meas) {
       jac_row2 = jac_row1 + 2;
       jac_col = 0;
@@ -369,7 +392,9 @@ static void wgf_fill_jacobian(opt_params* params, gsl_matrix* jacobian) {
       x = gsl_matrix_complex_ptr(params->l_inv_p_sv_p_w[i_omega], i_meas, 2);
       gsl_matrix_set(jacobian, jac_row1, ++jac_col, x->dat[0]);
       gsl_matrix_set(jacobian, jac_row2, jac_col, x->dat[1]);
+      jac_row1 = jac_row2 + 2;
     }
+  }
 }
 
 /******************************************************************************/

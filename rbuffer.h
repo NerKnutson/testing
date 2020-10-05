@@ -13,7 +13,7 @@ class RingBuffer
 			max_size_(size)
 			{
 				buf_ = new std::unique_ptr<double[]>[m_buffer_number];
-				for(int i = 0; i < buffer_number; i++)
+				for(int i = 0; i < m_buffer_number; i++)
 				{
 					buf_[i]=std::unique_ptr<double[]>(new double[max_size_]);
 				}
@@ -22,7 +22,7 @@ class RingBuffer
 			{
 				for(int i = 0; i < m_buffer_number; i++)
 					buf_[i].reset();
-				delete buf_;
+				delete[] buf_;
 			}
 		void Put(double const item[]);
 		void Get(double returned_data[]);

@@ -19,7 +19,7 @@
 const size_t window_size = 1024;
 const size_t sampling_rate = 48000;
 const double tukey_window_factor = 0.25;
-const size_t N_chan = 7;
+const size_t N_chan = 5;
 
 const double gpass = 0.1;
 const double gstop = 1;
@@ -29,34 +29,6 @@ const size_t d_factor = 10;
 
 const size_t history_size = 8192;
 
-//void fourier_transformer(Welch threaded_fourier_stuff, double* threaded_history, double* threaded_shot)
-void fourier_transformer(int threaded_channel, double* threaded_history, double* threaded_shot)
-{
-// Creates Fourier object and processes history and shot data
-	Welch fourier_stuff(history_size,window_size,sampling_rate,N_chan,tukey_window_factor);
-	fourier_stuff.welch_csd(threaded_history);
-	fourier_stuff.fft(threaded_shot);
-
-opt_params* find_w_opt_params;
-int error = init_find_w("find_w.ini",&find_w_opt_params);
-	if (error != 0)
-	{
-		printf("Initialization error: %d\n", error);
-		exit(error);
-	}
-
-perform_opt(find_w_opt_params,fourier_stuff.matrix_holder,fourier_stuff.vector_holder,threaded_channel);
-
-	printf("Finished optimization\n");
-	fflush(stdout);
-	for (int i = 0; i < 3; i++)
-	{
-			printf("%.5f\n", gsl_vector_get(find_w_opt_params->slowness,i) );
-			fflush(stdout);
-	}
-			printf("%d\n", find_w_opt_params->status);
-			fflush(stdout);
-}
 
 int main()
 {
@@ -74,9 +46,11 @@ int main()
 
 //	Ring Buffer
 	RingBuffer rbuff(N_chan,history_size+window_size);
+printf("Ring buffer declared\n");
+fflush(stdout);
 
 	std::ifstream infile;
-	infile.open("input/signal_face_centered_cubic.dat");
+	infile.open("input/recording_1.dat");
 	std::string line;
 	std::string::size_type sz;
 	double array[N_chan] = {0};
@@ -87,9 +61,8 @@ int main()
 
 	double alpha = 0.9999;
 	const double tiny = 0.00000000001;
-	double threshold = 19;
 
-	NLMS n_filter(N_chan, filter_order, step_size, alpha, threshold, tiny);
+	NLMS n_filter(N_chan, filter_order, step_size, alpha, tiny);
 
 //	Arrays made for dumping
 	//double history[N_chan][history_size];
@@ -109,39 +82,6 @@ if (infile.is_open())
 			array[i] = std::stod(line, &sz);
 			line = line.substr(sz);
 		}
-
-		if (deci.ProcessData(array))
-		{
-			rbuff.Put((double*)deci.m_data_out);
-			n_filter.Process((double*)deci.m_data_out);
-			counter ++;
-		}
-
-		if (rbuff.Size() > history_size + floor(0.5*tukey_window_factor*(window_size+1)) and !start_waiting and n_filter.IsTriggered(which_channel))
-		{
-			start_waiting = true;
-		}
-
-		if (start_waiting == true)
-			waiting_index++;
-
-		if (waiting_index == waiting_samples)
-		{
-		// Arrays to dump in are made
-			double* history;
-				history = new double[N_chan*history_size];
-			double* shot;
-				shot = new double[N_chan*window_size];
-
-			// Main thread dumps and resets triggers to begin collecting again
-			waiting_index = 0;
-			start_waiting = false;
-			n_filter.ResetTriggers();
-			rbuff.Dump(history_size,history,shot);
-
-			printf("Starting new thread\n");
-			fflush(stdout);
-			std::thread (fourier_transformer,which_channel,history,shot).detach();
 /*
 			for(int w = 0; w < window_size; w++)
 			{
@@ -156,7 +96,6 @@ if (infile.is_open())
 				std::cout << std::endl;
 			}
 */
-		}
 	}
 }
 	infile.close();
