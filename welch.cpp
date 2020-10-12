@@ -35,10 +35,8 @@ void Welch::welch_csd(double* input)
 					matrix_holder[b], n, m,
 					gsl_complex_add(
 						gsl_matrix_complex_get(matrix_holder[b],n,m),
-						gsl_complex_rect(
-							data[n][b+1]*data[m][b+1] + data[n][m_window_size-b-1]*data[m][m_window_size-b-1],
-							-data[n][b+1]*data[m][m_window_size-b-1] + data[n][m_window_size-b-1]*data[m][b+1]
-						)
+						{data[n][b+1]*data[m][b+1] + data[n][m_window_size-b-1]*data[m][m_window_size-b-1]*(m_window_size-b-1 != m_window_size/2),
+							-data[n][b+1]*data[m][m_window_size-b-1] + data[n][m_window_size-b-1]*data[m][b+1]}
 					)
 				);
 				if (w == m_window_num-1)
@@ -73,10 +71,7 @@ void Welch::fft(double* input)
 			gsl_vector_complex_set(
 				vector_holder[b],
 				n,
-				gsl_complex_rect(
-					data[b+1],
-					data[m_window_size-1-b]
-				)
+				{data[b+1], data[m_window_size-1-b]}
 			);
 		}
 	}

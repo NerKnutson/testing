@@ -149,7 +149,8 @@ void perform_opt(opt_params* params, gsl_matrix_complex** cps,
 
     // now get L^-1 * minus_i_omega_R for use in jacobian calculations
     // first, make copy of minus i omega R
-    *params->l_inv_minus_i_omega_R[i] = *params->minus_i_omega_R[i];
+    //*params->l_inv_minus_i_omega_R[i] = *params->minus_i_omega_R[i];
+    gsl_matrix_complex_memcpy(params->l_inv_minus_i_omega_R[i], params->minus_i_omega_R[i]);
 
     // now scale on the left by l_inv
     gsl_blas_ztrmm(CblasLeft, CblasLower, CblasNoTrans, CblasNonUnit,
@@ -159,7 +160,13 @@ void perform_opt(opt_params* params, gsl_matrix_complex** cps,
   // given the index of the mic that triggered this detection, calculate
   // an initial guess for the solution
   gsl_vector_view x0 = gsl_matrix_row(params->R, mic1);
-  gsl_vector_scale(&x0.vector, -1.0/343.0);
+
+  gsl_vector_scale(&x0.vector, -1.0/(343.0*gsl_blas_dnrm2(&x0.vector)));
+
+// Uncomment to run ntk_test_routine(params)
+//	calc_real_residual_vec(&x0.vector, params, params->residual);
+//<@@>
+
 
   // initialize the optimizer for this run
   params->fdf.params = params;
@@ -234,7 +241,7 @@ static void calc_steering_vecs(const gsl_vector* slowness, opt_params* params)
     }
 
     // now multiply by l_inv
-    *params->l_inv_sv[i_omega] = *params->steering_vecs[i_omega];
+    gsl_vector_complex_memcpy(params->l_inv_sv[i_omega], params->steering_vecs[i_omega]);
     gsl_blas_ztrmv(CblasLower, CblasNoTrans, CblasNonUnit,
 		   params->l_inv[i_omega], params->l_inv_sv[i_omega]);
 
@@ -268,7 +275,7 @@ static int calc_real_residual_vec(const gsl_vector* slowness, void* parameters,
   opt_params* params = (opt_params*) parameters;
 
   // save slowness for reducting load on future jacobian calculations
-  *params->slowness = *slowness;
+  gsl_vector_memcpy(params->slowness,slowness);
 
   // calculate steering vectors
   calc_steering_vecs(slowness, params);
@@ -277,21 +284,20 @@ static int calc_real_residual_vec(const gsl_vector* slowness, void* parameters,
   calc_s_hat(params);
 
   int i_res = 0;
-  gsl_complex minus_s_hat;
   gsl_complex z;
 
   // loop over frequencies
-  for (int i_omega; i_omega < params->n_omegas; ++i_omega) {
-    minus_s_hat = gsl_complex_mul(zone, params->s_hat[i_omega]);
-
+  for (int i_omega = 0; i_omega < params->n_omegas; ++i_omega) {
 
 //    // loop over channels to get the weighted residual vector
 #define Y(i, j) gsl_vector_complex_get(params->l_inv_y[(i)], (j))
-#define Y_hat(i, j) gsl_complex_mul(minus_s_hat, gsl_vector_complex_get(params->l_inv_sv[(i)], (j)))
+#define Y_hat(i, j) gsl_complex_mul(params->s_hat[i], gsl_vector_complex_get(params->l_inv_sv[(i)], (j)))
     for (int i_meas = 0; i_meas < params->n_meas; ++i_meas) {
       z = gsl_complex_sub(Y(i_omega, i_meas), Y_hat(i_omega, i_meas));
       gsl_vector_set(residual, i_res++, GSL_REAL(z));
       gsl_vector_set(residual, i_res++, GSL_IMAG(z));
+		//printf("%f + i %f\n",GSL_REAL(z), GSL_IMAG(z));
+		//fflush(stdout);
     }
 #undef Y
 #undef Y_hat
@@ -320,8 +326,8 @@ static int calc_real_jacobian(const gsl_vector* slowness, void* parameters,
 
     // loop over channels to get partial of scaled sv wrt slowness
     for (int i_meas = 0; i_meas < params->n_meas; ++i_meas) {
-      *params->l_inv_p_sv_p_w[i_omega]
-	= *params->l_inv_minus_i_omega_R[i_omega];
+      gsl_matrix_complex_memcpy(params->l_inv_p_sv_p_w[i_omega]
+	, params->l_inv_minus_i_omega_R[i_omega]);
       row = gsl_matrix_complex_row(params->l_inv_p_sv_p_w[i_omega], i_meas);
       gsl_vector_complex_scale(&row.vector,
 	        gsl_vector_complex_get(params->steering_vecs[i_omega], i_meas));
@@ -332,6 +338,7 @@ static int calc_real_jacobian(const gsl_vector* slowness, void* parameters,
 		   params->l_inv_y[i_omega], zzero, params->work1);
     gsl_blas_zgemv(CblasConjTrans, zone, params->l_inv_p_sv_p_w[i_omega],
 		   params->l_inv_sv[i_omega], zzero, params->work2);
+
     wgf_vector_complex_zero_the_imag_part(params->work2);
     gsl_vector_complex_scale(params->work2, ztwo);
     gsl_vector_complex_scale(params->work2, params->s_hat[i_omega]);
@@ -365,7 +372,16 @@ static int calc_real_jacobian(const gsl_vector* slowness, void* parameters,
 
 static void wgf_vector_complex_zero_the_imag_part(gsl_vector_complex* x) {
 
-  for (size_t i; i < x->size; ++i)
+/*
+gsl_vector_view temp = gsl_vector_complex_imag(x);
+gsl_vector_set_zero(&temp.vector);
+  for (size_t i = 0; i < x->size; ++i)
+	{
+	printf("%f + i %f\n", GSL_REAL(gsl_vector_complex_get(x,i)),GSL_IMAG(gsl_vector_complex_get(x,i)));
+	fflush(stdout);
+	}
+*/
+  for (size_t i = 0; i < x->size; ++i)
     GSL_SET_IMAG(gsl_vector_complex_ptr(x, i), 0.0);
 }
 
@@ -374,13 +390,27 @@ static void wgf_vector_complex_zero_the_imag_part(gsl_vector_complex* x) {
 static void wgf_fill_jacobian(opt_params* params, gsl_matrix* jacobian) {
 
   int jac_row1 = 0;
-  int jac_row2, jac_col;
+  int jac_row2 = 1;
+  int jac_col;
   gsl_complex* x;
 
   // some pointer arithmetic--yuk
   for (int i_omega = 0; i_omega < params->n_omegas; ++i_omega)
   {
     for (int i_meas = 0; i_meas < params->n_meas; ++i_meas) {
+      jac_col = 0;
+      x = gsl_matrix_complex_ptr(params->l_inv_p_sv_p_w[i_omega], i_meas, 0);
+      gsl_matrix_set(jacobian, jac_row1, jac_col, x->dat[0]);
+      gsl_matrix_set(jacobian, jac_row2, jac_col, x->dat[1]);
+      x = gsl_matrix_complex_ptr(params->l_inv_p_sv_p_w[i_omega], i_meas, 1);
+      gsl_matrix_set(jacobian, jac_row1, ++jac_col, x->dat[0]);
+      gsl_matrix_set(jacobian, jac_row2, jac_col, x->dat[1]);
+      x = gsl_matrix_complex_ptr(params->l_inv_p_sv_p_w[i_omega], i_meas, 2);
+      gsl_matrix_set(jacobian, jac_row1, ++jac_col, x->dat[0]);
+      gsl_matrix_set(jacobian, jac_row2, jac_col, x->dat[1]);
+      jac_row1 += 2;
+      jac_row2 += 2;
+/*
       jac_row2 = jac_row1 + 2;
       jac_col = 0;
       x = gsl_matrix_complex_ptr(params->l_inv_p_sv_p_w[i_omega], i_meas, 0);
@@ -392,7 +422,7 @@ static void wgf_fill_jacobian(opt_params* params, gsl_matrix* jacobian) {
       x = gsl_matrix_complex_ptr(params->l_inv_p_sv_p_w[i_omega], i_meas, 2);
       gsl_matrix_set(jacobian, jac_row1, ++jac_col, x->dat[0]);
       gsl_matrix_set(jacobian, jac_row2, jac_col, x->dat[1]);
-      jac_row1 = jac_row2 + 2;
+*/
     }
   }
 }
@@ -498,4 +528,74 @@ opt_params* opt_params_alloc(int n_fft, double sps, int n_omegas,
 					 params->fdf.p);
 
   return params;
+}
+
+
+void ntk_test_routine(opt_params* params)
+{
+	gsl_vector_complex** test_y;
+		test_y = new gsl_vector_complex*[params->n_fft/2 - 1];
+		for (int i_omega = 0; i_omega < params->n_fft/2 - 1; ++i_omega)
+			test_y[i_omega] = gsl_vector_complex_calloc(params->n_meas);
+
+	gsl_matrix_complex** test_cps;
+		test_cps = new gsl_matrix_complex*[params->n_fft/2 - 1];
+// Sets noise to very low
+		for (int i_omega = 0; i_omega < params->n_fft/2 - 1; ++i_omega)
+		{
+			test_cps[i_omega] = gsl_matrix_complex_calloc(params->n_meas,params->n_meas);
+			for (int i_meas = 0; i_meas < params->n_meas; ++i_meas)
+				gsl_matrix_complex_set(
+					test_cps[i_omega],
+					i_meas, i_meas,
+					gsl_complex_rect(0.1,0.0)
+				);
+		}
+
+	int mic1 = 0;
+	gsl_vector_complex* slowness;
+		slowness = gsl_vector_complex_calloc(3);
+	gsl_vector_complex_set_zero(slowness);
+	gsl_vector_complex_set(
+		slowness,
+		mic1,
+		gsl_complex_rect(-1.0/343.0,0)
+	);
+
+	gsl_vector_view position;
+	gsl_vector_complex* zposition;
+		zposition = gsl_vector_complex_calloc(3);
+
+	gsl_complex z;
+
+  double df = 4800.0 / (double) params->n_fft;
+
+  // 2 * pi * df
+  double twopidf = 2.0 * M_PI * df;
+
+// Sets the EXACT value for data
+	for (int i_omega = 0; i_omega <  params->n_fft/2 - 1; ++i_omega) {
+	 // loop over measurements [exp(-i * omega r \dot w)]
+		for (int i_meas = 0; i_meas < params->n_meas; ++i_meas) {
+			position = gsl_matrix_row(params->R, i_meas);
+				for (int i = 0; i < 3; i++)
+					gsl_vector_complex_set(
+						zposition,
+						i,
+						{0.0,gsl_vector_get(&position.vector,i)}
+					);
+			gsl_blas_zdotu(zposition,slowness, &z);
+			gsl_vector_complex_set(
+				test_y[i_omega],
+				i_meas,
+				gsl_complex_exp(
+					gsl_complex_mul_real(
+						z,-(i_omega + 1)*twopidf
+					)
+				)
+			);
+		}
+	}
+
+	perform_opt(params, test_cps, test_y, mic1);
 }

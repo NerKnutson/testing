@@ -16,10 +16,10 @@
 #define t_d 75	//	length of signal in (ms)
 #define t_t 25	//	transient time to cross array in (ms)
 
-const size_t window_size = 1024;
+const size_t window_size = 512;
 const size_t sampling_rate = 48000;
-const double tukey_window_factor = 0.25;
-const size_t N_chan = 7;
+const double tukey_window_factor = 0.10;
+const size_t N_chan = 19;
 
 const double gpass = 0.1;
 const double gstop = 1;
@@ -29,7 +29,8 @@ const size_t d_factor = 10;
 
 const size_t history_size = 8192;
 
-//void fourier_transformer(Welch threaded_fourier_stuff, double* threaded_history, double* threaded_shot)
+const double threshold = 2500;
+
 void fourier_transformer(int threaded_channel, double* threaded_history, double* threaded_shot)
 {
 // Creates Fourier object and processes history and shot data
@@ -46,16 +47,11 @@ int error = init_find_w("find_w.ini",&find_w_opt_params);
 	}
 
 perform_opt(find_w_opt_params,fourier_stuff.matrix_holder,fourier_stuff.vector_holder,threaded_channel);
+//ntk_test_routine(find_w_opt_params);
 
-	printf("Finished optimization\n");
-	fflush(stdout);
-	for (int i = 0; i < 3; i++)
-	{
-			printf("%.5f\n", gsl_vector_get(find_w_opt_params->slowness,i) );
-			fflush(stdout);
-	}
-			printf("%d\n", find_w_opt_params->status);
-			fflush(stdout);
+gsl_vector_fprintf(stdout,find_w_opt_params->slowness, "%10.5f");
+printf("\nSpeed:%10.5f\n\n", 1.0/gsl_blas_dnrm2(find_w_opt_params->slowness));
+fflush(stdout);
 }
 
 int main()
@@ -76,7 +72,9 @@ int main()
 	RingBuffer rbuff(N_chan,history_size+window_size);
 
 	std::ifstream infile;
-	infile.open("input/signal_face_centered_cubic.dat");
+	//infile.open("../inputs/signal_face_centered_cubic_x_axis.dat");
+	//infile.open("../inputs/lower_noise_z_axis.dat");
+	infile.open("../inputs/recording_1.dat");
 	std::string line;
 	std::string::size_type sz;
 	double array[N_chan] = {0};
@@ -87,19 +85,11 @@ int main()
 
 	double alpha = 0.9999;
 	const double tiny = 0.00000000001;
-	double threshold = 19;
 
 	NLMS n_filter(N_chan, filter_order, step_size, alpha, threshold, tiny);
 
-//	Arrays made for dumping
-	//double history[N_chan][history_size];
-	//double shot[N_chan][window_size];
-
-//	Welch Things
-	//Welch fourier_stuff(history_size,window_size,sampling_rate,N_chan,tukey_window_factor);
 
 int counter = 0;
-
 if (infile.is_open())
 {
 	while (getline(infile, line))
@@ -114,11 +104,12 @@ if (infile.is_open())
 		{
 			rbuff.Put((double*)deci.m_data_out);
 			n_filter.Process((double*)deci.m_data_out);
-			counter ++;
+			counter++;
 		}
 
 		if (rbuff.Size() > history_size + floor(0.5*tukey_window_factor*(window_size+1)) and !start_waiting and n_filter.IsTriggered(which_channel))
 		{
+			printf("Data Point Triggered: %d\n",counter);
 			start_waiting = true;
 		}
 
@@ -137,10 +128,8 @@ if (infile.is_open())
 			waiting_index = 0;
 			start_waiting = false;
 			n_filter.ResetTriggers();
-			rbuff.Dump(history_size,history,shot);
 
-			printf("Starting new thread\n");
-			fflush(stdout);
+			rbuff.Dump(history_size,history,shot);
 			std::thread (fourier_transformer,which_channel,history,shot).detach();
 /*
 			for(int w = 0; w < window_size; w++)

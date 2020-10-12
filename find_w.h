@@ -13,13 +13,13 @@ typedef struct
   int n_omegas; // number of frequences to use
   int* list_bins; // list of bins to use
   double* omegas; // radian frequencies used
-  
+
   int status; // solver result
   int info; // solver result
   int maxiter; // max iterations
   double xtol; // delta x tolerance
   double gtol; // gradient tolerance;
-  double ftol; // function value tolerance  
+  double ftol; // function value tolerance
 
   gsl_vector* slowness; // slowness vector
   gsl_vector_complex* zslowness; // slowness vector
@@ -50,5 +50,7 @@ int init_find_w(const char* filename, opt_params** find_w_opt_params);
 
 void perform_opt(opt_params* params, gsl_matrix_complex** cps,
 		 gsl_vector_complex** y, int mic1);
-			     
+
+void ntk_test_routine(opt_params* params);
+
 #endif
