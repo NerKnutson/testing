@@ -37,6 +37,7 @@ int main()
 		{
 			first_word = line.substr(0,line.find(" "));
 			line = line.substr(line.find_first_of(" \t") + 1);
+			file.close();
 			if (line != previous && first_word == "execute")
 			{
 
@@ -46,14 +47,13 @@ int main()
 					throw runtime_error("Cannot open pipe");
 
 				array<char, 256> buffer;
+				result = "";
 
 				while(!feof(pPipe))
 				{
 					auto bytes = fread(buffer.data(), 1, buffer.size(), pPipe);
 					result.append(buffer.data(), bytes);
 				}
-
-				file.close();
 
 // Puts output from pipe into file
 				file.open(file_name,ios::out);
@@ -64,7 +64,8 @@ int main()
 				previous  = line;
 			}
 		}
-		file.close();
+		else
+			file.close();
 	}
 
 

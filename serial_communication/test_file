@@ -7,10 +7,3 @@ sender
 sender.cpp
 sender.o
 test_file
-receiver
-receiver.cpp
-receiver.o
-sender
-sender.cpp
-sender.o
-test_file

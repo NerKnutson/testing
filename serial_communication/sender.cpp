@@ -1,6 +1,7 @@
 #include <cstring>
 #include <fstream>
 #include <csignal>
+#include <unistd.h>
 using namespace std;
 
 void signalHandler (int signum)
@@ -12,10 +13,9 @@ void signalHandler (int signum)
 int main(int argc, char* argv[])
 {
 	fstream file;
-	string file_name = "test_file";
+	string file_name = "/dev/ttyUSB0";
 
 	string line;
-	string previous;
 	string first_word;
 
 	file.open(file_name,ios::out);
@@ -26,7 +26,8 @@ int main(int argc, char* argv[])
 	}
 	file.close();
 
-	while (true)
+	bool listening = true;
+	while (listening)
 	{
 		if (!file.is_open())
 			file.open(file_name,ios::in);
@@ -38,13 +39,18 @@ int main(int argc, char* argv[])
 			{
 				printf("%s\n",line.c_str());
 				while (getline(file,line))
+				{
 					printf("%s\n",line.c_str());
+					fflush(stdout);
+				}
 				file.close();
-				break;
+				listening = false;
 			}
-			file.close();
+			else
+				file.close();
 		}
-		file.close();
+		else
+			file.close();
 	}
 	return 0;
 }
