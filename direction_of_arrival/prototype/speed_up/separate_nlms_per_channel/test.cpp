@@ -12,9 +12,8 @@
 
 #include <gsl/gsl_fft_complex.h>
 
+#include <chrono>
 
-#define t_d 75	//	length of signal in (ms)
-#define t_t 25	//	transient time to cross array in (ms)
 
 const size_t subarray_size = 4;
 
@@ -35,6 +34,7 @@ const double threshold = 500;
 
 void fourier_transformer(int threaded_channel, double* threaded_history, double* threaded_shot)
 {
+//	auto start = std::chrono::steady_clock::now();
 // Creates Fourier object and processes history and shot data
 	Welch fourier_stuff(history_size,window_size,N_chan,tukey_window_factor);
 	fourier_stuff.welch_csd(threaded_history);
@@ -51,10 +51,15 @@ int error = init_find_w("find_w.ini",&find_w_opt_params);
 perform_opt(find_w_opt_params,fourier_stuff.matrix_holder,fourier_stuff.vector_holder,threaded_channel);
 //ntk_test_routine(find_w_opt_params);
 gsl_vector_fprintf(stdout,find_w_opt_params->slowness, "%10.5f");
-fflush(stdout);
 printf("\nSpeed:%10.5f\n\n", 1.0/gsl_blas_dnrm2(find_w_opt_params->slowness));
-fflush(stdout);
 
+/*
+	auto end = std::chrono::steady_clock::now();
+	std::chrono::duration<double> thread_time = end - start;
+	printf("Time from start of thread: %10.5f\n",
+			thread_time.count()
+		);
+*/
 }
 
 int main()
@@ -62,11 +67,8 @@ int main()
 //	Decimator things
 	Decimator deci(gpass,gstop,w_p,w_s,d_factor,N_chan,sampling_rate);
 	//printf("%d\n",deci.GetOrder());
-//	Waiting for after trigger before dumping
-	double t_c = t_d + t_t;	//	(ms)
 
 	int which_channel = 0;
-	//size_t waiting_samples = t_c*sampling_rate/1000;
 	//NOTE: we subtract the length of the part that would be distorted by the Tukey windowing function.
 	size_t waiting_samples = window_size - floor(0.5*tukey_window_factor*(window_size+1));
 	//size_t waiting_samples = window_size;
@@ -85,7 +87,7 @@ int main()
 	double array[N_chan] = {0};
 
 //	NLMS Variables
-	const int filter_order = 10;
+	const int filter_order = 3;
 	const double step_size = 0.2;
 
 	double alpha = 0.9999;
@@ -125,6 +127,8 @@ if (infile.is_open())
 		{
 			rbuff.Put((double*)deci.m_data_out);
 
+//			auto start = std::chrono::steady_clock::now();
+
 			pointer = array_setup[0];
 			filter_1.Process(pointer);
 
@@ -139,6 +143,14 @@ if (infile.is_open())
 
 			pointer = array_setup[18];
 			filter_raw.Process(pointer);
+
+/*
+			auto end = std::chrono::steady_clock::now();
+			std::chrono::duration<double> NLMS_time = end - start;
+			printf("Time from start of NLMS: %10.5f\n\n",
+					NLMS_time.count()
+				);
+*/
 
 			counter++;
 		}
@@ -180,22 +192,8 @@ if (infile.is_open())
 			filter_raw.ResetTriggers();
 
 			rbuff.Dump(history_size,history,shot);
+			rbuff.UnPut(window_size);
 			std::thread (fourier_transformer,which_channel,history,shot).detach();
-/*
-			for(int w = 0; w < window_size; w++)
-			{
-				for(int n = 0; n < N_chan; n++)
-					printf("%20.15f", shot[n*window_size + w]);
-				printf("\n");
-			}
-			printf("\n\n");
-			for(int h = 0; h < history_size; h++)
-			{
-				for(int n = 0; n < N_chan; n++)
-					std::cout << std::setw(16) << history[n][h];
-				std::cout << std::endl;
-			}
-*/
 		}
 	}
 }

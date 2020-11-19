@@ -62,6 +62,24 @@ void RingBuffer::Put(const double item[])
 	full_ = head_ == tail_;
 	//std::lock_guard<std::mutex> unlock(mutex_);
 }
+void RingBuffer::UnPut(int size)
+{
+// Assumes that if you put a negative in that you really meant positive
+	if(size < 0)
+		size = -size;
+
+// Soft-Removes by placing the head of the buffer back by size
+	if(size > Size())
+		Reset();
+	else if (size > 0)
+	{
+		full_ = false;
+		if(size > head_)
+			head_ = max_size_ + head_ - size;
+		else
+			head_ = head_ - size;
+	}
+}
 
 // Retrieving Data
 void RingBuffer::Get(double returned_data[])
@@ -74,7 +92,7 @@ void RingBuffer::Get(double returned_data[])
 		returned_data = NULL;
 	}
 // Read data and advance the tail (we now have a free space)
-	for(int i = 0; i < m_buffer_number; i++)
+	else for(int i = 0; i < m_buffer_number; i++)
 	{
 		returned_data[i] =  buf_[i][tail_];
 	}

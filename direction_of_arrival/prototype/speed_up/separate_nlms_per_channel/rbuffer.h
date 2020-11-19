@@ -25,6 +25,7 @@ class RingBuffer
 				delete[] buf_;
 			}
 		void Put(double const item[]);
+		void UnPut(int size);
 		void Get(double returned_data[]);
 		double Look(int index, int channel);
 		void Dump(int marker, double* history, double* shot);
@@ -33,6 +34,7 @@ class RingBuffer
 		bool Full() const;
 		size_t Capacity() const;
 		size_t Size() const;
+
 	private:
 		std::mutex mutex_;
 		std::unique_ptr<double[]> *buf_;
