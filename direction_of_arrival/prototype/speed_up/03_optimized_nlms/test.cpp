@@ -34,7 +34,7 @@ const double threshold = 500;
 
 void fourier_transformer(int threaded_channel, double* threaded_history, double* threaded_shot)
 {
-auto start = std::chrono::steady_clock::now();
+//auto start = std::chrono::steady_clock::now();
 // Creates Fourier object and processes history and shot data
 	Welch fourier_stuff(history_size,window_size,N_chan,tukey_window_factor);
 	fourier_stuff.welch_csd(threaded_history);
@@ -53,11 +53,13 @@ perform_opt(find_w_opt_params,fourier_stuff.matrix_holder,fourier_stuff.vector_h
 //gsl_vector_fprintf(stdout,find_w_opt_params->slowness, "%10.5f");
 //printf("\nSpeed:%10.5f\n\n", 1.0/gsl_blas_dnrm2(find_w_opt_params->slowness));
 
+/*
 	auto end = std::chrono::steady_clock::now();
 	std::chrono::duration<double> thread_time = end - start;
 	printf("Time from start of thread: %10.5f\n",
 			thread_time.count()
 		);
+*/
 }
 
 int main()
@@ -193,6 +195,7 @@ if (infile.is_open())
 
 			rbuff.Dump(history_size,history,shot);
 			rbuff.UnPut(window_size);
+
 			std::thread (fourier_transformer,which_channel,history,shot).detach();
 		}
 	}

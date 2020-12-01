@@ -17,25 +17,26 @@ bool NLMS::Process(double data[])
 	{
 		index++;
 		index = m_filter_order + index%m_filter_order;
-	// Process m_x with present data[]
+// Process m_x with present data[]
 // Continuous Learning
+	// ERROR = NEW_DATA
 		for (int i = 0; i < m_N_chan; i++)
 		{
 			m_error[i] = data[i];
 			magnitude += data[i]*data[i];
 		}
-	// ERROR -= OLD_DATA
-		for (int i = 0; i < m_filter_order; i++)
+	// ERROR -= OTHER_DATA*COEFF
+		for (int j = 0; j < m_N_chan; j++)
 		{
-			for (int j = 0; j < m_N_chan; j++)
+			for (int k = 0; k < m_N_chan; k++)
 			{
-				magnitude += m_x[j][i]*m_x[j][i];
-				for (int k = 0; k < m_N_chan; k++)
+				for (int i = 0; i < m_filter_order; i++)
 				{
 					m_error[j] -= m_x[k][(i+index)%m_filter_order]*m_coeff[j][k][(i+index)%m_filter_order];
-					if (j != k)
-						m_error[j] -= data[k]*m_coeff[j][k][m_filter_order];
 				}
+
+				if (j != k)
+					m_error[j] -= data[k]*m_coeff[j][k][m_filter_order];
 			}
 		}
 	// Checks in case we attempt to divide by zero
@@ -46,17 +47,18 @@ bool NLMS::Process(double data[])
 
 	// Calculating new coefficients
 	// new_coeff = old_coeff + error*data*step_size/|data|^2
-		for (int i = 0; i < m_filter_order; i++)
+		for (int j = 0; j < m_N_chan; j++)
 		{
-			for (int j = 0; j < m_N_chan; j++)
+			temp = m_step_size*m_error[j]/magnitude;
+			for (int k = 0; k < m_N_chan; k++)
 			{
-				temp = m_step_size*m_error[j]/magnitude;
-				for (int k = 0; k < m_N_chan; k++)
+				for (int i = 0; i < m_filter_order; i++)
 				{
 					 m_coeff[j][k][(i+index)%m_filter_order] += m_x[k][(i+index)%m_filter_order]*temp;
-					 if (i == m_step_size - 1 and j != k)
-						 m_coeff[j][k][m_filter_order] += data[k]*temp;
 				}
+
+				if (j != k)
+					m_coeff[j][k][m_filter_order] += data[k]*temp;
 			}
 		}
 	// Check for shot and increment variance
@@ -64,7 +66,8 @@ bool NLMS::Process(double data[])
 		{
 			m_triggered[i] = (m_error[i]*m_error[i] > m_threshold*m_var[i]);
 
-			m_var[i] = m_alpha*m_var[i] + (1-m_alpha)*m_error[i]*m_error[i];
+			m_var[i] = m_alpha*m_var[i] + (1 - m_alpha)*m_error[i]*m_error[i];
+
 		// Preps the magnitude for next round
 			magnitude -= m_x[i][index%m_filter_order]*m_x[i][index%m_filter_order];
 		// Add data to m_x for next round; If triggered, does not add that data point

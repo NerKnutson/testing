@@ -25,7 +25,7 @@ void Welch::welch_csd(double* input)
 				data[n][i] = input[w*m_window_size/2 + n*m_total_size + i];
 			}
 			tukey(data[n]);
-			gsl_fft_real_radix2_transform(data[n],1,m_window_size);
+			gsl_fft_real_radix2_transform((double*)data[n],1,m_window_size);
 		}
 		for (int b = 0; b < m_bin_num; b++)
 			for (int n = 0; n < m_N_chan; n++)
@@ -69,7 +69,7 @@ void Welch::fft(double* input)
 			data[i] = input[n*m_window_size + i];
 		}
 		tukey(data);
-		gsl_fft_real_radix2_transform(data,1,m_window_size);
+		gsl_fft_real_radix2_transform((double*)data,1,m_window_size);
 		for (int b = 0; b < m_bin_num; b++)
 		{
 			gsl_vector_complex_set(

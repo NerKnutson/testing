@@ -13,6 +13,7 @@ class NLMS
 			m_tiny(tiny),
 			magnitude(tiny),
 			index(0)
+			//m_N_cluster(N_cluster)
 			{
 				m_x = new double*[N_chan];
 				m_coeff = new double**[N_chan];
@@ -74,5 +75,9 @@ class NLMS
 		double** m_x;
 	// Coefficients for the algorithm
 		double*** m_coeff;
+	// Number of sub-arrays
+		//const int m_N_cluster;
+	// Main channel for each cluster
+		//double** m_chan_cluster;
 };
 #endif
