@@ -15,8 +15,6 @@
 #include <chrono>
 
 
-const size_t subarray_size = 4;
-
 const size_t window_size = 256;
 const size_t sampling_rate = 48000;
 const double tukey_window_factor = 0.5;
@@ -78,12 +76,14 @@ int main()
 //	Ring Buffer
 	RingBuffer rbuff(N_chan,history_size+window_size);
 
-	std::ifstream infile;
+	//std::ifstream infile;
 	//infile.open("/home/ner/programming/inputs/signal_face_centered_cubic_x_axis.dat");
 	//infile.open("/home/ner/programming/inputs/lower_noise_z_axis.dat");
-	infile.open("/home/ner/programming/inputs/recording_1.dat");
-	std::string line;
-	std::string::size_type sz;
+	//infile.open("/home/ner/programming/inputs/recording_1.dat");
+	//std::string line;
+	//std::string::size_type sz;
+
+	FILE* in_file = fopen("/home/ner/programming/inputs/recording_1.dat","r");
 	double array[N_chan] = {0};
 
 //	NLMS Variables
@@ -130,21 +130,26 @@ int main()
 
 int counter = 0;
 int shot_num = 0;
-if (infile.is_open())
-{
+
 	auto start = std::chrono::steady_clock::now();
-	while (getline(infile, line))
+	while (!feof(in_file))
 	{
-		for (int i = 0; i < N_chan; i++)
+		start = std::chrono::steady_clock::now();
+		for (int n = 0; n < N_chan; ++n)
 		{
-			array[i] = std::stod(line, &sz);
-			line = line.substr(sz);
+			fscanf(in_file,"%lf", &array[n]);
 		}
+		auto end = std::chrono::steady_clock::now();
+			std::chrono::duration<double> trigger_time = end - start;
+			printf("Time to read: %15.10f\n\n",
+					trigger_time.count()
+				);
+
 
 		if (deci.ProcessData(array))
 		{
+		start = std::chrono::steady_clock::now();
 			rbuff.Put((double*)deci.m_data_out);
-
 
 			pointer = array_setup[0];
 			filter_1.Process(pointer);
@@ -162,6 +167,12 @@ if (infile.is_open())
 			filter_raw.Process(pointer);
 
 			counter++;
+
+		end = std::chrono::steady_clock::now();
+			std::chrono::duration<double> trigger_time = end - start;
+			printf("Time to process NLMS: %15.10f\n\n",
+					trigger_time.count()
+				);
 		}
 
 		//if (rbuff.Size() > history_size + floor(0.5*tukey_window_factor*(window_size+1)) and !start_waiting and n_filter.IsTriggered(which_channel))
@@ -179,14 +190,16 @@ if (infile.is_open())
 			//printf("Data Point Triggered: %d\n",counter);
 			start_waiting = true;
 
+		/*
 			auto end = std::chrono::steady_clock::now();
 			std::chrono::duration<double> trigger_time = end - start;
-			printf("Expected time from start to trigger: %10.5f\n",
+			printf("Expected time from start to trigger: %15.10f\n",
 					1.0*counter/(sampling_rate/d_factor)
 				);
-			printf("Actual time from start to trigger: %10.5f\n\n",
+			printf("Actual time from start to trigger: %15.10f\n\n",
 					trigger_time.count()
 				);
+		*/
 
 		}
 
@@ -216,7 +229,6 @@ if (infile.is_open())
 			std::thread (fourier_transformer,which_channel,history,shot).detach();
 		}
 	}
-}
-	infile.close();
+
 	return 0;
 }
